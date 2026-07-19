@@ -1,2 +1,21 @@
-package com.fooddelivery.food_delivery_backend.user.dto;public class LoginRequest {
+package com.fooddelivery.food_delivery_backend.user.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import lombok.*;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class LoginRequest {
+
+    @NotBlank(message = "Email is required")
+    @Email(message = "Invalid Email")
+    private String email;
+
+    @NotBlank(message = "Password is required")
+    private String password;
+
 }

@@ -1,5 +1,6 @@
 package com.fooddelivery.food_delivery_backend.user.dto;
 
+import com.fooddelivery.food_delivery_backend.user.enums.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -32,4 +33,5 @@ public class RegisterRequest {
     )
     private String phone;
 
+    private Role role;
 }

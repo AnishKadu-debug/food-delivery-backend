@@ -16,14 +16,13 @@ public final class UserMapper {
         return User.builder()
                 .name(request.getName())
                 .email(request.getEmail())
-                .password(request.getPassword())   // BCrypt later
+                .password(request.getPassword())   // Will be BCrypt encoded in AuthService
                 .phone(request.getPhone())
-                .role(Role.CUSTOMER)
+                .role(request.getRole() != null ? request.getRole() : Role.CUSTOMER)
                 .provider(AuthProvider.LOCAL)
                 .active(true)
                 .emailVerified(false)
                 .build();
-
     }
 
     public static UserResponse toResponse(User user) {

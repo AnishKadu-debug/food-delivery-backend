@@ -6,7 +6,7 @@ import com.fooddelivery.food_delivery_backend.user.entity.User;
 import com.fooddelivery.food_delivery_backend.user.enums.AuthProvider;
 import com.fooddelivery.food_delivery_backend.user.enums.Role;
 
-public class UserMapper {
+public final class UserMapper {
 
     private UserMapper() {
     }
@@ -16,7 +16,7 @@ public class UserMapper {
         return User.builder()
                 .name(request.getName())
                 .email(request.getEmail())
-                .password(request.getPassword())
+                .password(request.getPassword())   // BCrypt later
                 .phone(request.getPhone())
                 .role(Role.CUSTOMER)
                 .provider(AuthProvider.LOCAL)

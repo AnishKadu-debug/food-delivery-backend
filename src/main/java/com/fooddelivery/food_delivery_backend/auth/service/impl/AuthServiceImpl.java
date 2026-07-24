@@ -1,6 +1,9 @@
 package com.fooddelivery.food_delivery_backend.auth.service.impl;
 
 import com.fooddelivery.food_delivery_backend.auth.service.AuthService;
+import com.fooddelivery.food_delivery_backend.common.exception.DuplicateResourceException;
+import com.fooddelivery.food_delivery_backend.common.exception.ResourceNotFoundException;
+import com.fooddelivery.food_delivery_backend.common.exception.UnauthorizedException;
 import com.fooddelivery.food_delivery_backend.common.mapper.UserMapper;
 import com.fooddelivery.food_delivery_backend.security.jwt.JwtService;
 import com.fooddelivery.food_delivery_backend.user.dto.AuthResponse;
@@ -28,10 +31,10 @@ public class AuthServiceImpl implements AuthService {
     public UserResponse register(RegisterRequest request) {
 
         if (userService.existsByEmail(request.getEmail()))
-            throw new RuntimeException("Email already exists");
+            throw new DuplicateResourceException("Email already exists");
 
         if (userService.existsByPhone(request.getPhone()))
-            throw new RuntimeException("Phone already exists");
+            throw new DuplicateResourceException("Phone already exists");
 
         User user = UserMapper.toEntity(request);
 
@@ -44,17 +47,25 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse login(LoginRequest request) {
+        
 
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()
-                )
-        );
+        try {
+
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getEmail(),
+                            request.getPassword()));
+
+        } catch (Exception e) {
+
+            throw new UnauthorizedException(
+                    "Invalid email or password");
+        }
+
 
         User user = userService.findByEmail(request.getEmail())
-                .orElseThrow();
-
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found"));
         String jwt = jwtService.generateToken(user);
 
         return AuthResponse.builder()

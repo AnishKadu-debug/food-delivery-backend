@@ -17,6 +17,7 @@ import com.fooddelivery.food_delivery_backend.order.enums.OrderStatus;
 import com.fooddelivery.food_delivery_backend.order.mapper.OrderMapper;
 import com.fooddelivery.food_delivery_backend.order.repository.OrderRepository;
 import com.fooddelivery.food_delivery_backend.order.service.OrderService;
+import com.fooddelivery.food_delivery_backend.order.util.OrderStatusValidator;
 import com.fooddelivery.food_delivery_backend.restaurant.entity.Restaurant;
 import com.fooddelivery.food_delivery_backend.user.entity.User;
 import lombok.RequiredArgsConstructor;
@@ -121,17 +122,89 @@ public class OrderServiceImpl implements OrderService {
         return OrderMapper.toResponse(order);
     }
 
+
     @Override
-    public OrderResponse updateOrderStatus(Long orderId,
-                                           UpdateOrderStatusRequest request) {
+    public OrderResponse acceptOrder(Long orderId) {
+
+        Order order = getOwnedOrder(orderId);
+
+        validateTransition(order, OrderStatus.ACCEPTED);
+
+        order.setStatus(OrderStatus.ACCEPTED);
+
+        return OrderMapper.toResponse(orderRepository.save(order));
+    }
+
+    @Override
+    public OrderResponse rejectOrder(Long orderId) {
+
+        Order order = getOwnedOrder(orderId);
+
+        validateTransition(order, OrderStatus.REJECTED);
+
+        order.setStatus(OrderStatus.REJECTED);
+
+        return OrderMapper.toResponse(orderRepository.save(order));
+    }
+
+    @Override
+    public OrderResponse startPreparing(Long orderId) {
+
+        Order order = getOwnedOrder(orderId);
+
+        validateTransition(order, OrderStatus.PREPARING);
+
+        order.setStatus(OrderStatus.PREPARING);
+
+        return OrderMapper.toResponse(orderRepository.save(order));
+    }
+
+    @Override
+    public OrderResponse markReadyForPickup(Long orderId) {
+
+        Order order = getOwnedOrder(orderId);
+
+        validateTransition(order, OrderStatus.READY_FOR_PICKUP);
+
+        order.setStatus(OrderStatus.READY_FOR_PICKUP);
+
+        return OrderMapper.toResponse(orderRepository.save(order));
+    }
+
+    private Order getOwnedOrder(Long orderId) {
+
+        User currentUser = currentUserService.getCurrentUser();
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
-        order.setStatus(request.getStatus());
+        if (!order.getRestaurant()
+                .getOwner()
+                .getId()
+                .equals(currentUser.getId())) {
 
-        return OrderMapper.toResponse(orderRepository.save(order));
+            throw new ForbiddenException(
+                    "You can manage only your restaurant orders");
+        }
+
+        return order;
     }
+
+    private void validateTransition(Order order,
+                                    OrderStatus newStatus) {
+
+        if (!OrderStatusValidator.isValidTransition(
+                order.getStatus(),
+                newStatus)) {
+
+            throw new IllegalArgumentException(
+                    "Invalid order status transition from "
+                            + order.getStatus()
+                            + " to "
+                            + newStatus);
+        }
+    }
+
 
     @Override
     public OrderResponse cancelOrder(Long orderId) {
@@ -144,6 +217,8 @@ public class OrderServiceImpl implements OrderService {
         if (!order.getCustomer().getId().equals(currentUser.getId())) {
             throw new ForbiddenException("You cannot cancel this order");
         }
+
+        validateTransition(order, OrderStatus.CANCELLED);
 
         order.setStatus(OrderStatus.CANCELLED);
 

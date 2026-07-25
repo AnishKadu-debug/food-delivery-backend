@@ -47,14 +47,43 @@ public class OrderController {
         );
     }
 
-    @PutMapping("/{id}/status")
-    public ApiResponse<OrderResponse> updateStatus(
-            @PathVariable Long id,
-            @Valid @RequestBody UpdateOrderStatusRequest request) {
+    @PutMapping("/{id}/accept")
+    public ApiResponse<OrderResponse> acceptOrder(
+            @PathVariable Long id) {
 
         return ApiResponse.success(
-                "Order status updated successfully",
-                orderService.updateOrderStatus(id, request)
+                "Order accepted successfully",
+                orderService.acceptOrder(id)
+        );
+    }
+
+    @PutMapping("/{id}/reject")
+    public ApiResponse<OrderResponse> rejectOrder(
+            @PathVariable Long id) {
+
+        return ApiResponse.success(
+                "Order rejected successfully",
+                orderService.rejectOrder(id)
+        );
+    }
+
+    @PutMapping("/{id}/prepare")
+    public ApiResponse<OrderResponse> startPreparing(
+            @PathVariable Long id) {
+
+        return ApiResponse.success(
+                "Order moved to preparing",
+                orderService.startPreparing(id)
+        );
+    }
+
+    @PutMapping("/{id}/ready")
+    public ApiResponse<OrderResponse> markReadyForPickup(
+            @PathVariable Long id) {
+
+        return ApiResponse.success(
+                "Order is ready for pickup",
+                orderService.markReadyForPickup(id)
         );
     }
 

@@ -43,6 +43,22 @@ public class CartServiceImpl implements CartService {
         MenuItem menuItem = menuItemRepository.findById(request.getMenuItemId())
                 .orElseThrow(() -> new ResourceNotFoundException("Menu item not found"));
 
+        // Enforce single restaurant per cart
+        if (!cart.getCartItems().isEmpty()) {
+
+            Long existingRestaurantId = cart.getCartItems()
+                    .getFirst()
+                    .getMenuItem()
+                    .getRestaurant()
+                    .getId();
+
+            if (!existingRestaurantId.equals(menuItem.getRestaurant().getId())) {
+                throw new IllegalArgumentException(
+                        "You can only add items from one restaurant at a time. Please clear your cart first."
+                );
+            }
+        }
+
         CartItem cartItem = cartItemRepository
                 .findByCartIdAndMenuItemId(cart.getId(), menuItem.getId())
                 .orElse(null);

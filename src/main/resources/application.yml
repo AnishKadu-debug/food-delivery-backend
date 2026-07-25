@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: food-delivery-backend
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/food_delivery_db
+    username: root
+    password: Mysql18
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+    show-sql: true
+
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8080
+
+
+jwt:
+  secret: MzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=
+  expiration: 86400000

@@ -4,6 +4,7 @@ import com.fooddelivery.food_delivery_backend.address.entity.Address;
 import com.fooddelivery.food_delivery_backend.common.audit.BaseAuditEntity;
 import com.fooddelivery.food_delivery_backend.delivery.entity.Delivery;
 import com.fooddelivery.food_delivery_backend.order.enums.OrderStatus;
+import com.fooddelivery.food_delivery_backend.payment.entity.Payment;
 import com.fooddelivery.food_delivery_backend.restaurant.entity.Restaurant;
 import com.fooddelivery.food_delivery_backend.user.entity.User;
 import jakarta.persistence.*;
@@ -53,7 +54,6 @@ public class Order extends BaseAuditEntity {
     @Builder.Default
     private List<OrderItem> orderItems = new ArrayList<>();
 
-
     @OneToOne(
             mappedBy = "order",
             cascade = CascadeType.ALL,
@@ -61,4 +61,12 @@ public class Order extends BaseAuditEntity {
             fetch = FetchType.LAZY
     )
     private Delivery delivery;
+
+    @OneToOne(
+            mappedBy = "order",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.LAZY
+    )
+    private Payment payment;
 }

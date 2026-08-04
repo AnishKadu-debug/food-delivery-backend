@@ -5,6 +5,8 @@ import com.fooddelivery.food_delivery_backend.restaurant.dto.CreateRestaurantReq
 import com.fooddelivery.food_delivery_backend.restaurant.dto.RestaurantResponse;
 import com.fooddelivery.food_delivery_backend.restaurant.dto.UpdateRestaurantRequest;
 import com.fooddelivery.food_delivery_backend.restaurant.service.RestaurantService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -13,10 +15,18 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/restaurants")
 @RequiredArgsConstructor
+@Tag(
+        name = "Restaurants",
+        description = "APIs for creating, managing, searching, and moderating restaurants."
+)
 public class RestaurantController {
 
     private final RestaurantService restaurantService;
 
+    @Operation(
+            summary = "Create a restaurant",
+            description = "Creates a new restaurant for the authenticated restaurant owner."
+    )
     @PostMapping
     public ApiResponse<RestaurantResponse> createRestaurant(
             @Valid @RequestBody CreateRestaurantRequest request) {
@@ -27,6 +37,10 @@ public class RestaurantController {
         );
     }
 
+    @Operation(
+            summary = "Update restaurant",
+            description = "Updates an existing restaurant owned by the authenticated owner."
+    )
     @PutMapping("/{id}")
     public ApiResponse<RestaurantResponse> updateRestaurant(
             @PathVariable Long id,
@@ -38,6 +52,10 @@ public class RestaurantController {
         );
     }
 
+    @Operation(
+            summary = "Get restaurant by ID",
+            description = "Returns complete information about a restaurant."
+    )
     @GetMapping("/{id}")
     public ApiResponse<RestaurantResponse> getRestaurant(
             @PathVariable Long id) {
@@ -48,6 +66,10 @@ public class RestaurantController {
         );
     }
 
+    @Operation(
+            summary = "Get all restaurants",
+            description = "Returns a paginated list of all restaurants."
+    )
     @GetMapping
     public ApiResponse<Page<RestaurantResponse>> getAllRestaurants(
 
@@ -63,6 +85,10 @@ public class RestaurantController {
         );
     }
 
+    @Operation(
+            summary = "Delete restaurant",
+            description = "Deletes a restaurant owned by the authenticated owner."
+    )
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteRestaurant(
             @PathVariable Long id) {
@@ -75,6 +101,10 @@ public class RestaurantController {
         );
     }
 
+    @Operation(
+            summary = "Search restaurants",
+            description = "Searches restaurants by a keyword."
+    )
     @GetMapping("/search")
     public ApiResponse<Page<RestaurantResponse>> searchRestaurants(
 
@@ -93,6 +123,11 @@ public class RestaurantController {
                 )
         );
     }
+
+    @Operation(
+            summary = "Get restaurants by city",
+            description = "Returns restaurants located in the specified city."
+    )
     @GetMapping("/city")
     public ApiResponse<Page<RestaurantResponse>> getRestaurantsByCity(
             @RequestParam String city,
@@ -105,6 +140,10 @@ public class RestaurantController {
         );
     }
 
+    @Operation(
+            summary = "Get pending restaurants",
+            description = "Returns all restaurants waiting for admin approval."
+    )
     @GetMapping("/pending")
     public ApiResponse<Page<RestaurantResponse>> getPendingRestaurants(
             @RequestParam(defaultValue = "0") int page,
@@ -116,6 +155,10 @@ public class RestaurantController {
         );
     }
 
+    @Operation(
+            summary = "Approve restaurant",
+            description = "Approves a pending restaurant. Accessible only to administrators."
+    )
     @PatchMapping("/{id}/approve")
     public ApiResponse<RestaurantResponse> approveRestaurant(
             @PathVariable Long id) {
@@ -126,6 +169,10 @@ public class RestaurantController {
         );
     }
 
+    @Operation(
+            summary = "Reject restaurant",
+            description = "Rejects a pending restaurant. Accessible only to administrators."
+    )
     @PatchMapping("/{id}/reject")
     public ApiResponse<RestaurantResponse> rejectRestaurant(
             @PathVariable Long id) {
@@ -136,6 +183,10 @@ public class RestaurantController {
         );
     }
 
+    @Operation(
+            summary = "Open restaurant",
+            description = "Marks the restaurant as open for accepting new orders."
+    )
     @PatchMapping("/{id}/open")
     public ApiResponse<RestaurantResponse> openRestaurant(
             @PathVariable Long id) {
@@ -146,6 +197,10 @@ public class RestaurantController {
         );
     }
 
+    @Operation(
+            summary = "Close restaurant",
+            description = "Marks the restaurant as closed and unavailable for accepting new orders."
+    )
     @PatchMapping("/{id}/close")
     public ApiResponse<RestaurantResponse> closeRestaurant(
             @PathVariable Long id) {
@@ -155,5 +210,4 @@ public class RestaurantController {
                 restaurantService.closeRestaurant(id)
         );
     }
-
 }

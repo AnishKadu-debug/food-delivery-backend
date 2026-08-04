@@ -3,6 +3,8 @@ package com.fooddelivery.food_delivery_backend.payment.service.impl;
 import com.fooddelivery.food_delivery_backend.common.exception.ForbiddenException;
 import com.fooddelivery.food_delivery_backend.common.exception.ResourceNotFoundException;
 import com.fooddelivery.food_delivery_backend.common.security.CurrentUserService;
+import com.fooddelivery.food_delivery_backend.notification.enums.NotificationType;
+import com.fooddelivery.food_delivery_backend.notification.service.NotificationService;
 import com.fooddelivery.food_delivery_backend.order.entity.Order;
 import com.fooddelivery.food_delivery_backend.order.repository.OrderRepository;
 import com.fooddelivery.food_delivery_backend.payment.dto.CreatePaymentRequest;
@@ -28,6 +30,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final CurrentUserService currentUserService;
+    private final NotificationService notificationService;
 
     @Override
     public PaymentResponse createPayment(CreatePaymentRequest request) {
@@ -69,6 +72,27 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         Payment savedPayment = paymentRepository.save(payment);
+
+        if (savedPayment.getPaymentMethod() == PaymentMethod.COD) {
+
+            notificationService.createNotification(
+                    currentUser,
+                    "Cash on Delivery Selected",
+                    "Your Cash on Delivery payment has been registered for Order #"
+                            + order.getId(),
+                    NotificationType.GENERAL
+            );
+
+        } else {
+
+            notificationService.createNotification(
+                    currentUser,
+                    "Payment Successful",
+                    "Your payment for Order #" + order.getId()
+                            + " was completed successfully.",
+                    NotificationType.PAYMENT_SUCCESS
+            );
+        }
 
         return PaymentMapper.toResponse(savedPayment);
     }

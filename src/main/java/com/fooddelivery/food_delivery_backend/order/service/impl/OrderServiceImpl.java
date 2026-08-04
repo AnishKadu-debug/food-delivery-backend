@@ -8,9 +8,10 @@ import com.fooddelivery.food_delivery_backend.cart.repository.CartRepository;
 import com.fooddelivery.food_delivery_backend.common.exception.ForbiddenException;
 import com.fooddelivery.food_delivery_backend.common.exception.ResourceNotFoundException;
 import com.fooddelivery.food_delivery_backend.common.security.CurrentUserService;
+import com.fooddelivery.food_delivery_backend.notification.enums.NotificationType;
+import com.fooddelivery.food_delivery_backend.notification.service.NotificationService;
 import com.fooddelivery.food_delivery_backend.order.dto.OrderResponse;
 import com.fooddelivery.food_delivery_backend.order.dto.PlaceOrderRequest;
-import com.fooddelivery.food_delivery_backend.order.dto.UpdateOrderStatusRequest;
 import com.fooddelivery.food_delivery_backend.order.entity.Order;
 import com.fooddelivery.food_delivery_backend.order.entity.OrderItem;
 import com.fooddelivery.food_delivery_backend.order.enums.OrderStatus;
@@ -20,6 +21,7 @@ import com.fooddelivery.food_delivery_backend.order.service.OrderService;
 import com.fooddelivery.food_delivery_backend.order.util.OrderStatusValidator;
 import com.fooddelivery.food_delivery_backend.restaurant.entity.Restaurant;
 import com.fooddelivery.food_delivery_backend.user.entity.User;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -34,7 +36,9 @@ public class OrderServiceImpl implements OrderService {
     private final CartRepository cartRepository;
     private final AddressRepository addressRepository;
     private final CurrentUserService currentUserService;
+    private final NotificationService notificationService;
 
+    @Transactional
     @Override
     public OrderResponse placeOrder(PlaceOrderRequest request) {
 
@@ -90,6 +94,13 @@ public class OrderServiceImpl implements OrderService {
 
         Order savedOrder = orderRepository.save(order);
 
+        notificationService.createNotification(
+                restaurant.getOwner(),
+                "New Order Received",
+                "You have received a new order #" + savedOrder.getId(),
+                NotificationType.ORDER_PLACED
+        );
+
         cart.getCartItems().clear();
         cartRepository.save(cart);
 
@@ -122,7 +133,6 @@ public class OrderServiceImpl implements OrderService {
         return OrderMapper.toResponse(order);
     }
 
-
     @Override
     public OrderResponse acceptOrder(Long orderId) {
 
@@ -132,7 +142,16 @@ public class OrderServiceImpl implements OrderService {
 
         order.setStatus(OrderStatus.ACCEPTED);
 
-        return OrderMapper.toResponse(orderRepository.save(order));
+        Order saved = orderRepository.save(order);
+
+        notificationService.createNotification(
+                saved.getCustomer(),
+                "Order Accepted",
+                "Your order #" + saved.getId() + " has been accepted.",
+                NotificationType.ORDER_ACCEPTED
+        );
+
+        return OrderMapper.toResponse(saved);
     }
 
     @Override
@@ -144,7 +163,16 @@ public class OrderServiceImpl implements OrderService {
 
         order.setStatus(OrderStatus.REJECTED);
 
-        return OrderMapper.toResponse(orderRepository.save(order));
+        Order saved = orderRepository.save(order);
+
+        notificationService.createNotification(
+                saved.getCustomer(),
+                "Order Rejected",
+                "Your order #" + saved.getId() + " has been rejected.",
+                NotificationType.ORDER_REJECTED
+        );
+
+        return OrderMapper.toResponse(saved);
     }
 
     @Override
@@ -168,7 +196,16 @@ public class OrderServiceImpl implements OrderService {
 
         order.setStatus(OrderStatus.READY_FOR_PICKUP);
 
-        return OrderMapper.toResponse(orderRepository.save(order));
+        Order saved = orderRepository.save(order);
+
+        notificationService.createNotification(
+                saved.getCustomer(),
+                "Order Ready",
+                "Your order #" + saved.getId() + " is ready for pickup.",
+                NotificationType.ORDER_READY_FOR_PICKUP
+        );
+
+        return OrderMapper.toResponse(saved);
     }
 
     private Order getOwnedOrder(Long orderId) {
@@ -178,25 +215,16 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
-        if (!order.getRestaurant()
-                .getOwner()
-                .getId()
-                .equals(currentUser.getId())) {
-
-            throw new ForbiddenException(
-                    "You can manage only your restaurant orders");
+        if (!order.getRestaurant().getOwner().getId().equals(currentUser.getId())) {
+            throw new ForbiddenException("You can manage only your restaurant orders");
         }
 
         return order;
     }
 
-    private void validateTransition(Order order,
-                                    OrderStatus newStatus) {
+    private void validateTransition(Order order, OrderStatus newStatus) {
 
-        if (!OrderStatusValidator.isValidTransition(
-                order.getStatus(),
-                newStatus)) {
-
+        if (!OrderStatusValidator.isValidTransition(order.getStatus(), newStatus)) {
             throw new IllegalArgumentException(
                     "Invalid order status transition from "
                             + order.getStatus()
@@ -204,7 +232,6 @@ public class OrderServiceImpl implements OrderService {
                             + newStatus);
         }
     }
-
 
     @Override
     public OrderResponse cancelOrder(Long orderId) {

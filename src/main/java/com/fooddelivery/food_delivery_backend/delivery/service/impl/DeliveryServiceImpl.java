@@ -11,6 +11,8 @@ import com.fooddelivery.food_delivery_backend.delivery.mapper.DeliveryMapper;
 import com.fooddelivery.food_delivery_backend.delivery.repository.DeliveryRepository;
 import com.fooddelivery.food_delivery_backend.delivery.service.DeliveryService;
 import com.fooddelivery.food_delivery_backend.delivery.util.DeliveryStatusValidator;
+import com.fooddelivery.food_delivery_backend.notification.enums.NotificationType;
+import com.fooddelivery.food_delivery_backend.notification.service.NotificationService;
 import com.fooddelivery.food_delivery_backend.order.entity.Order;
 import com.fooddelivery.food_delivery_backend.order.enums.OrderStatus;
 import com.fooddelivery.food_delivery_backend.order.repository.OrderRepository;
@@ -32,6 +34,7 @@ public class DeliveryServiceImpl implements DeliveryService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final CurrentUserService currentUserService;
+    private final NotificationService notificationService;
 
     @Override
     public DeliveryResponse assignDeliveryPartner(Long orderId,
@@ -94,8 +97,14 @@ public class DeliveryServiceImpl implements DeliveryService {
         Delivery saved = deliveryRepository.save(delivery);
 
         order.setDelivery(saved);
-
         orderRepository.save(order);
+
+        notificationService.createNotification(
+                deliveryPartner,
+                "New Delivery Assigned",
+                "A new delivery has been assigned to you for Order #" + order.getId(),
+                NotificationType.DELIVERY_ASSIGNED
+        );
 
         return DeliveryMapper.toResponse(saved);
     }
@@ -162,6 +171,13 @@ public class DeliveryServiceImpl implements DeliveryService {
 
         orderRepository.save(order);
 
+        notificationService.createNotification(
+                order.getCustomer(),
+                "Order Picked Up",
+                "Your order #" + order.getId() + " is on the way.",
+                NotificationType.ORDER_PICKED_UP
+        );
+
         return DeliveryMapper.toResponse(
                 deliveryRepository.save(delivery));
     }
@@ -180,6 +196,13 @@ public class DeliveryServiceImpl implements DeliveryService {
         order.setStatus(OrderStatus.DELIVERED);
 
         orderRepository.save(order);
+
+        notificationService.createNotification(
+                order.getCustomer(),
+                "Order Delivered",
+                "Your order #" + order.getId() + " has been delivered.",
+                NotificationType.ORDER_DELIVERED
+        );
 
         return DeliveryMapper.toResponse(
                 deliveryRepository.save(delivery));

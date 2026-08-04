@@ -59,9 +59,21 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
 
-                        .requestMatchers("/api/auth/**")
-                        .permitAll()
+                        // Public APIs
+                        .requestMatchers("/api/auth/**").permitAll()
 
+                        // Admin APIs
+                        .requestMatchers("/api/admin/**")
+                        .hasAuthority("ADMIN")
+
+                        // Restaurant moderation
+                        .requestMatchers(
+                                "/api/restaurants/*/approve",
+                                "/api/restaurants/*/reject"
+                        )
+                        .hasAuthority("ADMIN")
+
+                        // Everything else requires authentication
                         .anyRequest()
                         .authenticated())
 

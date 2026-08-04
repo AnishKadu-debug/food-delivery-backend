@@ -171,6 +171,12 @@ public class RestaurantServiceImpl implements RestaurantService {
     @Override
     public RestaurantResponse approveRestaurant(Long id) {
 
+        User currentUser = currentUserService.getCurrentUser();
+
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new ForbiddenException("Only admins can approve restaurants.");
+        }
+
         Restaurant restaurant = restaurantRepository.findById(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Restaurant not found"));
@@ -184,6 +190,12 @@ public class RestaurantServiceImpl implements RestaurantService {
 
     @Override
     public RestaurantResponse rejectRestaurant(Long id) {
+        User currentUser = currentUserService.getCurrentUser();
+
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new ForbiddenException("Only admins can reject restaurants.");
+        }
+
 
         Restaurant restaurant = restaurantRepository.findById(id)
                 .orElseThrow(() ->

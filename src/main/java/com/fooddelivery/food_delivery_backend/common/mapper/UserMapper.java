@@ -33,6 +33,7 @@ public final class UserMapper {
                 .email(user.getEmail())
                 .phone(user.getPhone())
                 .role(user.getRole())
+                .active(user.isActive())
                 .build();
 
     }

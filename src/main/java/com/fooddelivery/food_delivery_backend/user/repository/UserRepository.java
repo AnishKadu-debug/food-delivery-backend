@@ -13,4 +13,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByPhone(String phone);
 
+    long countByRole(com.fooddelivery.food_delivery_backend.user.enums.Role role);
+
 }

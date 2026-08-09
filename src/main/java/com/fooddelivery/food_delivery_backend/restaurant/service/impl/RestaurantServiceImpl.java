@@ -4,6 +4,7 @@ import com.fooddelivery.food_delivery_backend.common.exception.DuplicateResource
 import com.fooddelivery.food_delivery_backend.common.exception.ForbiddenException;
 import com.fooddelivery.food_delivery_backend.common.exception.ResourceNotFoundException;
 import com.fooddelivery.food_delivery_backend.common.security.CurrentUserService;
+import com.fooddelivery.food_delivery_backend.config.CacheNames;
 import com.fooddelivery.food_delivery_backend.restaurant.dto.CreateRestaurantRequest;
 import com.fooddelivery.food_delivery_backend.restaurant.dto.RestaurantResponse;
 import com.fooddelivery.food_delivery_backend.restaurant.dto.UpdateRestaurantRequest;
@@ -15,7 +16,12 @@ import com.fooddelivery.food_delivery_backend.restaurant.service.RestaurantServi
 import com.fooddelivery.food_delivery_backend.user.entity.User;
 import com.fooddelivery.food_delivery_backend.user.enums.Role;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.*;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -26,20 +32,32 @@ public class RestaurantServiceImpl implements RestaurantService {
     private final CurrentUserService currentUserService;
 
     @Override
+    @CacheEvict(
+            value = {
+                    CacheNames.RESTAURANTS,
+                    CacheNames.RESTAURANT_SEARCH,
+                    CacheNames.RESTAURANTS_BY_CITY,
+                    CacheNames.PENDING_RESTAURANTS
+            },
+            allEntries = true
+    )
     public RestaurantResponse createRestaurant(CreateRestaurantRequest request) {
 
         User owner = currentUserService.getCurrentUser();
 
         if (owner.getRole() != Role.OWNER) {
-            throw new ForbiddenException("Only restaurant owners can create restaurants.");
+            throw new ForbiddenException(
+                    "Only restaurant owners can create restaurants.");
         }
 
         if (restaurantRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateResourceException("Restaurant email already exists.");
+            throw new DuplicateResourceException(
+                    "Restaurant email already exists.");
         }
 
         if (restaurantRepository.existsByPhone(request.getPhone())) {
-            throw new DuplicateResourceException("Restaurant phone already exists.");
+            throw new DuplicateResourceException(
+                    "Restaurant phone already exists.");
         }
 
         Restaurant restaurant = RestaurantMapper.toEntity(request);
@@ -54,8 +72,19 @@ public class RestaurantServiceImpl implements RestaurantService {
     }
 
     @Override
-    public RestaurantResponse updateRestaurant(Long id,
-                                               UpdateRestaurantRequest request) {
+    @CacheEvict(
+            value = {
+                    CacheNames.RESTAURANT_DETAILS,
+                    CacheNames.RESTAURANTS,
+                    CacheNames.RESTAURANT_SEARCH,
+                    CacheNames.RESTAURANTS_BY_CITY,
+                    CacheNames.PENDING_RESTAURANTS
+            },
+            allEntries = true
+    )
+    public RestaurantResponse updateRestaurant(
+            Long id,
+            UpdateRestaurantRequest request) {
 
         User currentUser = currentUserService.getCurrentUser();
 
@@ -65,7 +94,9 @@ public class RestaurantServiceImpl implements RestaurantService {
 
         if (currentUser.getRole() != Role.ADMIN &&
                 !restaurant.getOwner().getId().equals(currentUser.getId())) {
-            throw new ForbiddenException("You are not allowed to update this restaurant.");
+
+            throw new ForbiddenException(
+                    "You are not allowed to update this restaurant.");
         }
 
         if (request.getEmail() != null &&
@@ -73,7 +104,8 @@ public class RestaurantServiceImpl implements RestaurantService {
 
             restaurantRepository.findByEmail(request.getEmail())
                     .ifPresent(r -> {
-                        throw new DuplicateResourceException("Restaurant email already exists.");
+                        throw new DuplicateResourceException(
+                                "Restaurant email already exists.");
                     });
         }
 
@@ -82,7 +114,8 @@ public class RestaurantServiceImpl implements RestaurantService {
 
             restaurantRepository.findByPhone(request.getPhone())
                     .ifPresent(r -> {
-                        throw new DuplicateResourceException("Restaurant phone already exists.");
+                        throw new DuplicateResourceException(
+                                "Restaurant phone already exists.");
                     });
         }
 
@@ -94,6 +127,10 @@ public class RestaurantServiceImpl implements RestaurantService {
     }
 
     @Override
+    @Cacheable(
+            value = CacheNames.RESTAURANT_DETAILS,
+            key = "#id"
+    )
     public RestaurantResponse getRestaurant(Long id) {
 
         Restaurant restaurant = restaurantRepository.findById(id)
@@ -104,9 +141,14 @@ public class RestaurantServiceImpl implements RestaurantService {
     }
 
     @Override
-    public Page<RestaurantResponse> getAllRestaurants(int page,
-                                                      int size,
-                                                      String sortBy) {
+    @Cacheable(
+            value = CacheNames.RESTAURANTS,
+            key = "'page:' + #page + ':size:' + #size + ':sort:' + #sortBy"
+    )
+    public Page<RestaurantResponse> getAllRestaurants(
+            int page,
+            int size,
+            String sortBy) {
 
         Pageable pageable =
                 PageRequest.of(page, size, Sort.by(sortBy));
@@ -116,6 +158,16 @@ public class RestaurantServiceImpl implements RestaurantService {
     }
 
     @Override
+    @CacheEvict(
+            value = {
+                    CacheNames.RESTAURANT_DETAILS,
+                    CacheNames.RESTAURANTS,
+                    CacheNames.RESTAURANT_SEARCH,
+                    CacheNames.RESTAURANTS_BY_CITY,
+                    CacheNames.PENDING_RESTAURANTS
+            },
+            allEntries = true
+    )
     public void deleteRestaurant(Long id) {
 
         User currentUser = currentUserService.getCurrentUser();
@@ -135,9 +187,14 @@ public class RestaurantServiceImpl implements RestaurantService {
     }
 
     @Override
-    public Page<RestaurantResponse> searchRestaurants(String keyword,
-                                                      int page,
-                                                      int size) {
+    @Cacheable(
+            value = CacheNames.RESTAURANT_SEARCH,
+            key = "'keyword:' + #keyword + ':page:' + #page + ':size:' + #size"
+    )
+    public Page<RestaurantResponse> searchRestaurants(
+            String keyword,
+            int page,
+            int size) {
 
         Pageable pageable = PageRequest.of(page, size);
 
@@ -145,36 +202,58 @@ public class RestaurantServiceImpl implements RestaurantService {
                 .findByNameContainingIgnoreCase(keyword, pageable)
                 .map(RestaurantMapper::toResponse);
     }
+
     @Override
-    public Page<RestaurantResponse> getRestaurantsByCity(String city,
-                                                         int page,
-                                                         int size) {
+    @Cacheable(
+            value = CacheNames.RESTAURANTS_BY_CITY,
+            key = "'city:' + #city + ':page:' + #page + ':size:' + #size"
+    )
+    public Page<RestaurantResponse> getRestaurantsByCity(
+            String city,
+            int page,
+            int size) {
 
         Pageable pageable = PageRequest.of(page, size);
 
-        return restaurantRepository.findByCityContainingIgnoreCase(city, pageable)
+        return restaurantRepository
+                .findByCityContainingIgnoreCase(city, pageable)
                 .map(RestaurantMapper::toResponse);
     }
 
     @Override
-    public Page<RestaurantResponse> getPendingRestaurants(int page,
-                                                          int size) {
+    @Cacheable(
+            value = CacheNames.PENDING_RESTAURANTS,
+            key = "'page:' + #page + ':size:' + #size"
+    )
+    public Page<RestaurantResponse> getPendingRestaurants(
+            int page,
+            int size) {
 
         Pageable pageable = PageRequest.of(page, size);
 
-        return restaurantRepository.findByStatus(
-                        RestaurantStatus.PENDING,
-                        pageable)
+        return restaurantRepository
+                .findByStatus(RestaurantStatus.PENDING, pageable)
                 .map(RestaurantMapper::toResponse);
     }
 
     @Override
+    @CacheEvict(
+            value = {
+                    CacheNames.RESTAURANT_DETAILS,
+                    CacheNames.RESTAURANTS,
+                    CacheNames.RESTAURANT_SEARCH,
+                    CacheNames.RESTAURANTS_BY_CITY,
+                    CacheNames.PENDING_RESTAURANTS
+            },
+            allEntries = true
+    )
     public RestaurantResponse approveRestaurant(Long id) {
 
         User currentUser = currentUserService.getCurrentUser();
 
         if (currentUser.getRole() != Role.ADMIN) {
-            throw new ForbiddenException("Only admins can approve restaurants.");
+            throw new ForbiddenException(
+                    "Only admins can approve restaurants.");
         }
 
         Restaurant restaurant = restaurantRepository.findById(id)
@@ -189,13 +268,24 @@ public class RestaurantServiceImpl implements RestaurantService {
     }
 
     @Override
+    @CacheEvict(
+            value = {
+                    CacheNames.RESTAURANT_DETAILS,
+                    CacheNames.RESTAURANTS,
+                    CacheNames.RESTAURANT_SEARCH,
+                    CacheNames.RESTAURANTS_BY_CITY,
+                    CacheNames.PENDING_RESTAURANTS
+            },
+            allEntries = true
+    )
     public RestaurantResponse rejectRestaurant(Long id) {
+
         User currentUser = currentUserService.getCurrentUser();
 
         if (currentUser.getRole() != Role.ADMIN) {
-            throw new ForbiddenException("Only admins can reject restaurants.");
+            throw new ForbiddenException(
+                    "Only admins can reject restaurants.");
         }
-
 
         Restaurant restaurant = restaurantRepository.findById(id)
                 .orElseThrow(() ->
@@ -210,6 +300,16 @@ public class RestaurantServiceImpl implements RestaurantService {
     }
 
     @Override
+    @CacheEvict(
+            value = {
+                    CacheNames.RESTAURANT_DETAILS,
+                    CacheNames.RESTAURANTS,
+                    CacheNames.RESTAURANT_SEARCH,
+                    CacheNames.RESTAURANTS_BY_CITY,
+                    CacheNames.PENDING_RESTAURANTS
+            },
+            allEntries = true
+    )
     public RestaurantResponse openRestaurant(Long id) {
 
         User user = currentUserService.getCurrentUser();
@@ -220,11 +320,13 @@ public class RestaurantServiceImpl implements RestaurantService {
 
         if (user.getRole() != Role.ADMIN &&
                 !restaurant.getOwner().getId().equals(user.getId())) {
+
             throw new ForbiddenException("Access denied.");
         }
 
         if (restaurant.getStatus() != RestaurantStatus.APPROVED) {
-            throw new ForbiddenException("Restaurant is not approved.");
+            throw new ForbiddenException(
+                    "Restaurant is not approved.");
         }
 
         restaurant.setOpen(true);
@@ -235,6 +337,16 @@ public class RestaurantServiceImpl implements RestaurantService {
     }
 
     @Override
+    @CacheEvict(
+            value = {
+                    CacheNames.RESTAURANT_DETAILS,
+                    CacheNames.RESTAURANTS,
+                    CacheNames.RESTAURANT_SEARCH,
+                    CacheNames.RESTAURANTS_BY_CITY,
+                    CacheNames.PENDING_RESTAURANTS
+            },
+            allEntries = true
+    )
     public RestaurantResponse closeRestaurant(Long id) {
 
         User user = currentUserService.getCurrentUser();
@@ -245,6 +357,7 @@ public class RestaurantServiceImpl implements RestaurantService {
 
         if (user.getRole() != Role.ADMIN &&
                 !restaurant.getOwner().getId().equals(user.getId())) {
+
             throw new ForbiddenException("Access denied.");
         }
 

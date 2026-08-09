@@ -1,0 +1,7 @@
+target/
+.git/
+.idea/
+.vscode/
+*.iml
+*.log
+README.mddocker build -t food-delivery-backend:1.0 .

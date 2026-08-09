@@ -1,6 +1,5 @@
 package com.fooddelivery.food_delivery_backend.config;
 
-import tools.jackson.databind.ObjectMapper;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,11 +20,12 @@ public class CacheConfig {
 
     @Bean
     public RedisCacheManager redisCacheManager(
-            RedisConnectionFactory redisConnectionFactory,
-            ObjectMapper objectMapper) {
+            RedisConnectionFactory redisConnectionFactory) {
 
         GenericJacksonJsonRedisSerializer jsonSerializer =
-                new GenericJacksonJsonRedisSerializer(objectMapper);
+                GenericJacksonJsonRedisSerializer.builder()
+                        .enableUnsafeDefaultTyping()
+                        .build();
 
         RedisCacheConfiguration defaultConfig =
                 RedisCacheConfiguration.defaultCacheConfig()
@@ -33,7 +33,8 @@ public class CacheConfig {
                         .disableCachingNullValues()
                         .serializeKeysWith(
                                 RedisSerializationContext.SerializationPair
-                                        .fromSerializer(new StringRedisSerializer()))
+                                        .fromSerializer(
+                                                new StringRedisSerializer()))
                         .serializeValuesWith(
                                 RedisSerializationContext.SerializationPair
                                         .fromSerializer(jsonSerializer));

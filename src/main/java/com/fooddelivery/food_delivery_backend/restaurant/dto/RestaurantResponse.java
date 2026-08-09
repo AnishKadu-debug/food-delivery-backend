@@ -2,13 +2,17 @@ package com.fooddelivery.food_delivery_backend.restaurant.dto;
 
 import com.fooddelivery.food_delivery_backend.restaurant.enums.RestaurantStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalTime;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Schema(description = "Represents restaurant information returned by the API.")
 public class RestaurantResponse {
 

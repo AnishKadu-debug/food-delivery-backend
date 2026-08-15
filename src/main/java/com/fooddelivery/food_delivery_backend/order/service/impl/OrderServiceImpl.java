@@ -23,6 +23,7 @@ import com.fooddelivery.food_delivery_backend.restaurant.entity.Restaurant;
 import com.fooddelivery.food_delivery_backend.user.entity.User;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -30,6 +31,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
@@ -44,17 +46,39 @@ public class OrderServiceImpl implements OrderService {
 
         User currentUser = currentUserService.getCurrentUser();
 
+        log.info("Placing order for customer {}", currentUser.getId());
+
         Cart cart = cartRepository.findByUserId(currentUser.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Cart not found"));
+                .orElseThrow(() -> {
+                    log.warn("Cart not found for customer {}", currentUser.getId());
+                    return new ResourceNotFoundException("Cart not found");
+                });
 
         if (cart.getCartItems().isEmpty()) {
+
+            log.warn("Customer {} attempted to place order with empty cart",
+                    currentUser.getId());
+
             throw new IllegalArgumentException("Cart is empty");
         }
 
         Address address = addressRepository.findById(request.getAddressId())
-                .orElseThrow(() -> new ResourceNotFoundException("Address not found"));
+                .orElseThrow(() -> {
+                    log.warn("Address {} not found for customer {}",
+                            request.getAddressId(),
+                            currentUser.getId());
+
+                    return new ResourceNotFoundException("Address not found");
+                });
 
         if (!address.getUser().getId().equals(currentUser.getId())) {
+
+            log.warn(
+                    "Customer {} attempted to use address {} belonging to another user",
+                    currentUser.getId(),
+                    request.getAddressId()
+            );
+
             throw new ForbiddenException("This address does not belong to you");
         }
 
@@ -94,6 +118,14 @@ public class OrderServiceImpl implements OrderService {
 
         Order savedOrder = orderRepository.save(order);
 
+        log.info(
+                "Order {} placed successfully by customer {} for restaurant {} with total amount {}",
+                savedOrder.getId(),
+                currentUser.getId(),
+                restaurant.getId(),
+                total
+        );
+
         notificationService.createNotification(
                 restaurant.getOwner(),
                 "New Order Received",
@@ -112,6 +144,8 @@ public class OrderServiceImpl implements OrderService {
 
         User currentUser = currentUserService.getCurrentUser();
 
+        log.info("Fetching orders for customer {}", currentUser.getId());
+
         return orderRepository.findByCustomer(currentUser)
                 .stream()
                 .map(OrderMapper::toResponse)
@@ -124,11 +158,32 @@ public class OrderServiceImpl implements OrderService {
         User currentUser = currentUserService.getCurrentUser();
 
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+                .orElseThrow(() -> {
+                    log.warn(
+                            "Order {} not found while requested by customer {}",
+                            orderId,
+                            currentUser.getId()
+                    );
+
+                    return new ResourceNotFoundException("Order not found");
+                });
 
         if (!order.getCustomer().getId().equals(currentUser.getId())) {
+
+            log.warn(
+                    "Customer {} attempted to access order {} belonging to another customer",
+                    currentUser.getId(),
+                    orderId
+            );
+
             throw new ForbiddenException("You cannot view this order");
         }
+
+        log.info(
+                "Customer {} retrieved order {}",
+                currentUser.getId(),
+                orderId
+        );
 
         return OrderMapper.toResponse(order);
     }
@@ -143,6 +198,12 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(OrderStatus.ACCEPTED);
 
         Order saved = orderRepository.save(order);
+
+        log.info(
+                "Order {} accepted by restaurant owner {}",
+                saved.getId(),
+                currentUserService.getCurrentUser().getId()
+        );
 
         notificationService.createNotification(
                 saved.getCustomer(),
@@ -165,6 +226,12 @@ public class OrderServiceImpl implements OrderService {
 
         Order saved = orderRepository.save(order);
 
+        log.info(
+                "Order {} rejected by restaurant owner {}",
+                saved.getId(),
+                currentUserService.getCurrentUser().getId()
+        );
+
         notificationService.createNotification(
                 saved.getCustomer(),
                 "Order Rejected",
@@ -182,9 +249,20 @@ public class OrderServiceImpl implements OrderService {
 
         validateTransition(order, OrderStatus.PREPARING);
 
+        OrderStatus previousStatus = order.getStatus();
+
         order.setStatus(OrderStatus.PREPARING);
 
-        return OrderMapper.toResponse(orderRepository.save(order));
+        Order saved = orderRepository.save(order);
+
+        log.info(
+                "Order {} status changed from {} to PREPARING by restaurant owner {}",
+                saved.getId(),
+                previousStatus,
+                currentUserService.getCurrentUser().getId()
+        );
+
+        return OrderMapper.toResponse(saved);
     }
 
     @Override
@@ -194,9 +272,18 @@ public class OrderServiceImpl implements OrderService {
 
         validateTransition(order, OrderStatus.READY_FOR_PICKUP);
 
+        OrderStatus previousStatus = order.getStatus();
+
         order.setStatus(OrderStatus.READY_FOR_PICKUP);
 
         Order saved = orderRepository.save(order);
+
+        log.info(
+                "Order {} status changed from {} to READY_FOR_PICKUP by restaurant owner {}",
+                saved.getId(),
+                previousStatus,
+                currentUserService.getCurrentUser().getId()
+        );
 
         notificationService.createNotification(
                 saved.getCustomer(),
@@ -213,23 +300,53 @@ public class OrderServiceImpl implements OrderService {
         User currentUser = currentUserService.getCurrentUser();
 
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+                .orElseThrow(() -> {
+                    log.warn(
+                            "Order {} not found while requested by restaurant owner {}",
+                            orderId,
+                            currentUser.getId()
+                    );
+
+                    return new ResourceNotFoundException("Order not found");
+                });
 
         if (!order.getRestaurant().getOwner().getId().equals(currentUser.getId())) {
-            throw new ForbiddenException("You can manage only your restaurant orders");
+
+            log.warn(
+                    "Restaurant owner {} attempted to manage order {} belonging to another restaurant",
+                    currentUser.getId(),
+                    orderId
+            );
+
+            throw new ForbiddenException(
+                    "You can manage only your restaurant orders"
+            );
         }
 
         return order;
     }
 
-    private void validateTransition(Order order, OrderStatus newStatus) {
+    private void validateTransition(
+            Order order,
+            OrderStatus newStatus) {
 
-        if (!OrderStatusValidator.isValidTransition(order.getStatus(), newStatus)) {
+        if (!OrderStatusValidator.isValidTransition(
+                order.getStatus(),
+                newStatus)) {
+
+            log.warn(
+                    "Invalid order status transition for order {}: {} -> {}",
+                    order.getId(),
+                    order.getStatus(),
+                    newStatus
+            );
+
             throw new IllegalArgumentException(
                     "Invalid order status transition from "
                             + order.getStatus()
                             + " to "
-                            + newStatus);
+                            + newStatus
+            );
         }
     }
 
@@ -239,16 +356,42 @@ public class OrderServiceImpl implements OrderService {
         User currentUser = currentUserService.getCurrentUser();
 
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+                .orElseThrow(() -> {
+                    log.warn(
+                            "Order {} not found while cancellation was requested by customer {}",
+                            orderId,
+                            currentUser.getId()
+                    );
+
+                    return new ResourceNotFoundException("Order not found");
+                });
 
         if (!order.getCustomer().getId().equals(currentUser.getId())) {
+
+            log.warn(
+                    "Customer {} attempted to cancel order {} belonging to another customer",
+                    currentUser.getId(),
+                    orderId
+            );
+
             throw new ForbiddenException("You cannot cancel this order");
         }
 
         validateTransition(order, OrderStatus.CANCELLED);
 
+        OrderStatus previousStatus = order.getStatus();
+
         order.setStatus(OrderStatus.CANCELLED);
 
-        return OrderMapper.toResponse(orderRepository.save(order));
+        Order saved = orderRepository.save(order);
+
+        log.info(
+                "Order {} cancelled by customer {}. Status changed from {} to CANCELLED",
+                saved.getId(),
+                currentUser.getId(),
+                previousStatus
+        );
+
+        return OrderMapper.toResponse(saved);
     }
 }
